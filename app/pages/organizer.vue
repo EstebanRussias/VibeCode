@@ -390,7 +390,7 @@ function categoryOf(event: EventDto, categoryId: string) {
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
   font-weight: 700;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
@@ -448,10 +448,11 @@ label.grow {
 
 input,
 select {
-  padding: 0.55rem 0.7rem;
+  height: 2.75rem;
+  padding: 0.55rem 0.9rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: white;
+  background: var(--color-input-bg);
   font-size: 0.9rem;
   color: var(--color-text);
   min-width: 0;
@@ -547,6 +548,7 @@ legend {
 
 .inline-form input {
   width: 70px;
+  height: auto;
   padding: 0.35rem 0.5rem;
 }
 
@@ -556,7 +558,7 @@ legend {
 
 .btn {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   padding: 0.55rem 1.1rem;
   font-weight: 600;
   font-size: 0.9rem;
@@ -572,7 +574,7 @@ legend {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
   align-self: flex-start;
 }
 
@@ -581,14 +583,14 @@ legend {
 }
 
 .btn-outline {
-  background: white;
+  background: transparent;
   color: var(--color-danger);
   border: 1px solid var(--color-danger-soft);
 }
 
 .btn-ghost {
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
 }
 
 .btn-small {

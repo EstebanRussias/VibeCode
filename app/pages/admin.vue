@@ -229,7 +229,7 @@ select {
   padding: 0.5rem 0.7rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: white;
+  background: var(--color-input-bg);
   font-size: 0.88rem;
   color: var(--color-text);
   min-width: 0;
@@ -267,7 +267,7 @@ select:focus {
 }
 
 .users tr.dirty td {
-  background: #fbfaff;
+  background: var(--color-surface-alt);
 }
 
 .users td input {
@@ -291,7 +291,7 @@ select:focus {
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
 }
 
 .actions {
@@ -324,7 +324,7 @@ select:focus {
 
 .btn {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   padding: 0.5rem 1rem;
   font-weight: 600;
   font-size: 0.85rem;
@@ -338,11 +338,11 @@ select:focus {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-outline {
-  background: white;
+  background: transparent;
   color: var(--color-danger);
   border: 1px solid var(--color-danger-soft);
 }

@@ -85,27 +85,33 @@ async function logout() {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-  padding: 1rem 1.5rem;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(12px);
+  gap: 0.75rem 1.5rem;
+  padding: 1.25rem 2rem;
+  background: rgba(10, 10, 10, 0.78);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--color-border);
 }
 
 .brand {
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   text-decoration: none;
   color: var(--color-text);
 }
 
 .brand-mark {
-  font-size: 1.6rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  font-size: 1.15rem;
   line-height: 1;
 }
 
@@ -117,41 +123,63 @@ async function logout() {
 
 .brand-text strong {
   font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .brand-text small {
   color: var(--color-muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
 }
 
 .nav {
+  grid-column: 2;
   display: flex;
-  gap: 0.4rem;
-  background: var(--color-primary-soft);
-  padding: 0.3rem;
-  border-radius: 999px;
+  justify-content: center;
+  gap: 1.75rem;
 }
 
 .nav-link {
-  padding: 0.45rem 1rem;
-  border-radius: 999px;
+  position: relative;
+  padding: 0.35rem 0;
   font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
-  color: var(--color-primary-dark);
-  transition: background 0.15s ease, color 0.15s ease;
+  color: var(--color-muted);
+  transition: color 0.15s ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.2rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
 }
 
 .nav-link:hover {
-  background: rgba(124, 58, 237, 0.12);
+  color: var(--color-text);
 }
 
 .nav-link.active {
-  background: var(--color-primary);
-  color: white;
+  color: var(--color-text);
+}
+
+.nav-link.active::after,
+.nav-link:hover::after {
+  transform: scaleX(1);
 }
 
 .account {
+  grid-column: 3;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -167,11 +195,11 @@ async function logout() {
 }
 
 .role-badge {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.2rem 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
   background: var(--color-success-soft);
   color: var(--color-success);
@@ -188,28 +216,32 @@ async function logout() {
 }
 
 .account-btn {
-  border: none;
-  background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
-  padding: 0.45rem 1rem;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  padding: 0.55rem 1.25rem;
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .account-btn:hover {
-  background: rgba(124, 58, 237, 0.18);
+  border-color: var(--color-text);
+  background: var(--color-surface-alt);
 }
 
 .account-btn.primary {
   background: var(--color-primary);
-  color: white;
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .account-btn.primary:hover {
   background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
 }
 
 .content {
@@ -218,12 +250,34 @@ async function logout() {
 
 .footer {
   text-align: center;
-  padding: 1.5rem 1rem 2rem;
+  padding: 2rem 1rem 2.5rem;
+  border-top: 1px solid var(--color-border);
   color: var(--color-muted);
   font-size: 0.8rem;
 }
 
+@media (max-width: 860px) {
+  .topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 1.25rem;
+  }
+
+  .account {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
 @media (max-width: 520px) {
+  .topbar {
+    padding: 1rem;
+  }
+
   .brand-text small {
     display: none;
   }

@@ -96,7 +96,7 @@ async function submit() {
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
   font-weight: 700;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
@@ -145,7 +145,7 @@ h1 {
 
 .btn {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   padding: 0.75rem 1.1rem;
   font-weight: 700;
   font-size: 1rem;
@@ -159,7 +159,7 @@ h1 {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:hover:not(:disabled) {

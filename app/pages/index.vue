@@ -292,21 +292,20 @@ async function confirmHold(id?: string) {
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
   font-weight: 700;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .hero h1 {
-  font-size: clamp(1.75rem, 4vw, 2.6rem);
-  margin: 0 0 0.75rem;
-  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-size: clamp(2.1rem, 5.5vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin: 0 0 1rem;
+  color: var(--color-text);
 }
 
 .lede {
@@ -367,7 +366,7 @@ async function confirmHold(id?: string) {
 
 .badge.early {
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-text);
 }
 
 .categories {
@@ -377,10 +376,17 @@ async function confirmHold(id?: string) {
 }
 
 .category-card {
-  background: #fbfaff;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 1.1rem;
+}
+
+.category-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .category-head {
@@ -422,7 +428,7 @@ async function confirmHold(id?: string) {
 .progress-track {
   height: 6px;
   border-radius: 999px;
-  background: #eee9fb;
+  background: var(--color-surface-alt);
   overflow: hidden;
   margin-bottom: 0.75rem;
 }
@@ -458,7 +464,7 @@ async function confirmHold(id?: string) {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: white;
+  background: var(--color-input-bg);
   font-size: 0.9rem;
 }
 
@@ -473,7 +479,7 @@ async function confirmHold(id?: string) {
 
 .btn {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   padding: 0.55rem 1.1rem;
   font-weight: 600;
   font-size: 0.9rem;
@@ -492,7 +498,7 @@ async function confirmHold(id?: string) {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -500,14 +506,14 @@ async function confirmHold(id?: string) {
 }
 
 .btn-outline {
-  background: white;
+  background: transparent;
   color: var(--color-danger);
   border: 1px solid var(--color-danger-soft);
 }
 
 .btn-ghost {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
 }
 
 .feedback {
@@ -568,7 +574,7 @@ async function confirmHold(id?: string) {
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   padding: 0.5rem;
-  background: white;
+  background: var(--color-input-bg);
 }
 
 .token-line {
