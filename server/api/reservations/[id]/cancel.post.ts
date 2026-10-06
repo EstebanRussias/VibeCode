@@ -1,3 +1,21 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Reservations'],
+    summary: '[USER] Annuler un billet',
+    description:
+      '**Roles autorises :** USER (uniquement ses propres billets).\n\nPossible jusqu\'a 48h avant le concert ; la place est proposee a la liste d\'attente.',
+    security: [{ cookieAuth: [] }],
+    responses: {
+      '200': { description: 'Reservation annulee.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+      '404': { description: 'Reservation introuvable (ou billet d\'un autre compte).' },
+      '409': { description: 'Reservation non confirmee ou deja annulee.' },
+      '422': { description: 'Moins de 48h avant le concert.' },
+    },
+  },
+})
+
 const CANCELLATION_DEADLINE_HOURS = 48
 
 // Espace d'annulation client (module 6) : autorise jusqu'a H-48, remise en

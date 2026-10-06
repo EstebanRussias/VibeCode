@@ -1,3 +1,35 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Scan'],
+    summary: '[ORGANIZER, ADMIN] Scanner un billet',
+    description:
+      '**Roles autorises :** ORGANIZER (uniquement les billets de ses propres concerts), ADMIN (tous les concerts).\n\nVerifie la signature HMAC du QR et marque le billet scanne. Resultat : OK, ALREADY_SCANNED ou INVALID.',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['qrToken'],
+            properties: {
+              qrToken: { type: 'string', description: 'Champ qrToken d\'une reservation.' },
+              scannedBy: { type: 'string', maxLength: 40, description: 'Poste de scan (ex. Guichet 2).' },
+            },
+          },
+          example: { qrToken: '<qrToken>', scannedBy: 'Guichet 1' },
+        },
+      },
+    },
+    responses: {
+      '200': { description: '{ result: OK | ALREADY_SCANNED | INVALID, message }' },
+      '400': { description: 'qrToken manquant.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+    },
+  },
+})
+
 interface ScanBody {
   qrToken?: string
   scannedBy?: string

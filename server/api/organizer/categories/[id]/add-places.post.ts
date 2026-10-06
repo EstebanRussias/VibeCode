@@ -1,3 +1,29 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Organisateur'],
+    summary: '[ORGANIZER, ADMIN] Ajouter des places a une categorie',
+    description:
+      '**Roles autorises :** ORGANIZER (uniquement sur ses propres concerts), ADMIN (tous les concerts).\n\nLes places ajoutees sont d\'abord proposees a la liste d\'attente.',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: { type: 'object', required: ['amount'], properties: { amount: { type: 'integer', minimum: 1, maximum: 10000 } } },
+          example: { amount: 5 },
+        },
+      },
+    },
+    responses: {
+      '200': { description: 'Categorie mise a jour.' },
+      '400': { description: 'amount invalide.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise ou concert d\'un autre organisateur.' },
+      '404': { description: 'Categorie introuvable.' },
+    },
+  },
+})
+
 interface AddPlacesBody {
   amount?: number
 }

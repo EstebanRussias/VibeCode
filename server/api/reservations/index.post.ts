@@ -1,5 +1,42 @@
 import { randomUUID } from 'node:crypto'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Reservations'],
+    summary: '[USER] Reserver des billets',
+    description:
+      '**Roles autorises :** USER.\n\nReservation confirmee immediatement au prix applicable. Rejouer la meme idempotencyKey renvoie le meme billet. Quota par compte et par categorie (MAX_TICKETS_PER_EMAIL, 4 par defaut).',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['ticketCategoryId', 'quantity', 'idempotencyKey'],
+            properties: {
+              ticketCategoryId: { type: 'string' },
+              quantity: { type: 'integer', minimum: 1 },
+              idempotencyKey: { type: 'string', description: 'Cle unique cote client (ex. UUID).' },
+            },
+          },
+          example: { ticketCategoryId: 'electro-fosse', quantity: 1, idempotencyKey: 'swagger-test-1' },
+        },
+      },
+    },
+    responses: {
+      '201': { description: 'Reservation CONFIRMED creee (ou rejouee).' },
+      '400': { description: 'Champ manquant ou invalide.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+      '404': { description: 'Categorie introuvable.' },
+      '409': { description: 'Plus assez de places (SOLD_OUT) ou cle d\'idempotence d\'un autre compte.' },
+      '410': { description: 'Concert deja passe.' },
+      '422': { description: 'Quota de billets depasse.' },
+    },
+  },
+})
+
 const configuredMax = Number(process.env.MAX_TICKETS_PER_EMAIL)
 const MAX_TICKETS_PER_USER = Number.isInteger(configuredMax) && configuredMax > 0 ? configuredMax : 4
 

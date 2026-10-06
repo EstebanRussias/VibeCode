@@ -1,5 +1,38 @@
 import type { Role } from '../../../utils/session'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Admin'],
+    summary: '[ADMIN] Modifier le nom et/ou le role d\'un compte',
+    description:
+      '**Roles autorises :** ADMIN.\n\nUn admin ne peut pas retirer son propre role ADMIN ; un compte proprietaire de concerts ne peut pas repasser USER.',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', maxLength: 80 },
+              role: { type: 'string', enum: ['USER', 'ORGANIZER', 'ADMIN'] },
+            },
+          },
+          example: { role: 'ORGANIZER' },
+        },
+      },
+    },
+    responses: {
+      '200': { description: 'Compte mis a jour.' },
+      '400': { description: 'Rien a modifier ou valeur invalide.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+      '404': { description: 'Utilisateur introuvable.' },
+      '409': { description: 'Changement de role refuse (propre role admin, concerts possedes).' },
+    },
+  },
+})
+
 interface UpdateUserBody {
   name?: string
   role?: string

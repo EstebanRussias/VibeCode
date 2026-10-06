@@ -1,3 +1,30 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Liste d\'attente'],
+    summary: '[USER] S\'inscrire a la liste d\'attente',
+    description:
+      '**Roles autorises :** USER.\n\nUniquement sur une categorie complete. Une seule inscription active par compte et par categorie.',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: { type: 'object', required: ['ticketCategoryId'], properties: { ticketCategoryId: { type: 'string' } } },
+          example: { ticketCategoryId: 'demo-fosse' },
+        },
+      },
+    },
+    responses: {
+      '201': { description: 'Inscription creee (ou existante).' },
+      '400': { description: 'ticketCategoryId manquant.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+      '404': { description: 'Categorie introuvable.' },
+      '409': { description: 'Des places sont encore disponibles.' },
+    },
+  },
+})
+
 interface WaitlistBody {
   ticketCategoryId?: string
 }

@@ -1,3 +1,19 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Organisateur'],
+    summary: '[ORGANIZER, ADMIN] Recettes du concert par categorie',
+    description:
+      '**Roles autorises :** ORGANIZER (uniquement ses propres concerts), ADMIN (tous les concerts).\n\nBillets vendus (dont early), scannes et recette par categorie (vue SQL CategoryRevenue).',
+    security: [{ cookieAuth: [] }],
+    responses: {
+      '200': { description: 'Statistiques par categorie et totaux.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise ou concert d\'un autre organisateur.' },
+      '404': { description: 'Evenement introuvable.' },
+    },
+  },
+})
+
 interface CategoryRevenueRow {
   categoryId: string
   categoryName: string

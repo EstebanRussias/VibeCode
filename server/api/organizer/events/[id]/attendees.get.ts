@@ -1,3 +1,18 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Organisateur'],
+    summary: '[ORGANIZER, ADMIN] Export CSV des participants',
+    description: '**Roles autorises :** ORGANIZER (uniquement ses propres concerts), ADMIN (tous les concerts).\n\nBillets confirmes uniquement.',
+    security: [{ cookieAuth: [] }],
+    responses: {
+      '200': { description: 'Fichier CSV.', content: { 'text/csv': { schema: { type: 'string' } } } },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise ou concert d\'un autre organisateur.' },
+      '404': { description: 'Evenement introuvable.' },
+    },
+  },
+})
+
 // Export CSV des participants du concert (billets confirmes) : liste de
 // controle pour l'organisateur du concert ou un ADMIN.
 export default defineEventHandler(async (event) => {

@@ -1,3 +1,14 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Organisateur'],
+    summary: '[ORGANIZER, ADMIN] Concerts geres',
+    description:
+      '**Roles autorises :** ORGANIZER (uniquement ses propres concerts), ADMIN (tous les concerts).',
+    security: [{ cookieAuth: [] }],
+    responses: { '200': { description: 'Liste des concerts avec leurs categories.' }, '401': { description: 'Non connecte.' }, '403': { description: 'Role non autorise.' }, },
+  },
+})
+
 // Concerts geres par le compte connecte : les siens pour un ORGANIZER,
 // tous (avec le nom de l'organisateur) pour un ADMIN.
 export default defineEventHandler(async (event) => {

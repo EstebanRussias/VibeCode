@@ -1,3 +1,14 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Catalogue'],
+    summary: '[USER] Catalogue des concerts a venir',
+    description:
+      '**Roles autorises :** USER.\n\nConcerts a venir avec, par categorie, le prix applicable (early ou normal), les places disponibles et la taille de la liste d\'attente.',
+    security: [{ cookieAuth: [] }],
+    responses: { '200': { description: 'Liste des concerts.' }, '401': { description: 'Non connecte.' }, '403': { description: 'Role non autorise.' }, },
+  },
+})
+
 // Catalogue acheteur (USER) : concerts a venir, prix applicable (early ou
 // normal) et disponibilite de chaque categorie. Balaye au passage les
 // reservations HELD en retard (section 2.4) pour que le stock affiche soit

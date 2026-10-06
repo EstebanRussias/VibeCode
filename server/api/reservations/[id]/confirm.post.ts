@@ -1,3 +1,21 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Reservations'],
+    summary: '[USER] Confirmer une place proposee par la liste d\'attente',
+    description:
+      '**Roles autorises :** USER (uniquement ses propres billets).\n\nPasse une reservation HELD en CONFIRMED dans la fenetre de 2h. Idempotent si deja confirmee.',
+    security: [{ cookieAuth: [] }],
+    responses: {
+      '200': { description: 'Reservation confirmee.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+      '404': { description: 'Reservation introuvable (ou billet d\'un autre compte).' },
+      '409': { description: 'Reservation non confirmable.' },
+      '410': { description: 'Fenetre de confirmation expiree.' },
+    },
+  },
+})
+
 // Confirmation du billet propose par la liste d'attente (section 2.4) :
 // la personne notifiee clique sur son lien dans la fenetre de 2h.
 export default defineEventHandler(async (event) => {

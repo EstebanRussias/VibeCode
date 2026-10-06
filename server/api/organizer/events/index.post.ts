@@ -1,5 +1,62 @@
 import type { CategoryInput } from '../../../utils/categories'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Organisateur'],
+    summary: '[ORGANIZER, ADMIN] Creer un concert avec ses categories',
+    description:
+      '**Roles autorises :** ORGANIZER, ADMIN (le compte connecte devient proprietaire du concert).\n\nDates en UTC. Prix en euros. Entre 1 et 20 categories ; le tarif early demande earlyPrice ET earlyUntil.',
+    security: [{ cookieAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['name', 'eventDate', 'categories'],
+            properties: {
+              name: { type: 'string', maxLength: 120 },
+              eventDate: { type: 'string', format: 'date-time' },
+              categories: { type: 'array', minItems: 1, maxItems: 20, items: { $ref: '#/components/schemas/CategoryInput' } },
+            },
+          },
+          example: {
+            name: 'Concert de test',
+            eventDate: '2027-06-21T20:00:00Z',
+            categories: [
+              { name: 'Fosse', totalPlaces: 100, price: 25, earlyPrice: 18, earlyUntil: '2027-05-01T00:00:00Z' },
+              { name: 'Balcon', totalPlaces: 40, price: 35 },
+            ],
+          },
+        },
+      },
+    },
+    responses: {
+      '201': { description: 'Concert cree avec ses categories.' },
+      '400': { description: 'Donnees invalides.' },
+      '401': { description: 'Non connecte.' },
+      '403': { description: 'Role non autorise.' },
+    },
+    $global: {
+      components: {
+        schemas: {
+          CategoryInput: {
+            type: 'object',
+            required: ['name', 'totalPlaces', 'price'],
+            properties: {
+              name: { type: 'string', maxLength: 80 },
+              totalPlaces: { type: 'integer', minimum: 1, maximum: 100000 },
+              price: { type: 'number', minimum: 0, description: 'Prix normal en euros.' },
+              earlyPrice: { type: 'number', minimum: 0, description: 'Prix early en euros (inferieur au prix normal).' },
+              earlyUntil: { type: 'string', format: 'date-time', description: 'Fin du tarif early (UTC), avant le concert.' },
+            },
+          },
+        },
+      },
+    },
+  },
+})
+
 interface CreateEventBody {
   name?: string
   eventDate?: string

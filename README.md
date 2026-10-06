@@ -63,6 +63,14 @@ Mots de passe de demonstration uniquement : a changer avant toute mise en ligne.
 | `hangar@nuits-garonne.fr` | `admin1234` | ORGANIZER (Hangar Live : Electro, Jazz & Blues) |
 | `client@nuits-garonne.fr` | `client1234` | USER |
 
+## Tester l'API (Swagger)
+
+Avec le serveur lance, ouvrir [http://localhost:3000/_swagger](http://localhost:3000/_swagger)
+(ou `/_scalar`, spec brute sur `/_openapi.json`). Chaque route indique les roles autorises dans son
+resume (`[ADMIN]`, `[ORGANIZER, ADMIN]`...) et sa description. Se connecter d'abord avec
+`POST /api/auth/login` (un compte de demo ci-dessus) : le cookie de session est ensuite envoye
+automatiquement. La documentation est declaree dans chaque handler via `defineRouteMeta`.
+
 ## Demontrer l'anti-survente
 
 Avec le serveur lance (Docker ou `npm run dev`), dans un autre terminal :
