@@ -10,7 +10,18 @@ la reservation est gratuite et confirmee en un clic.
 - Node.js 22+
 - Docker (pour PostgreSQL local)
 
-## Mise en route
+## Lancement en une commande (Docker)
+
+```bash
+docker compose up -d --build
+```
+
+Construit l'app, demarre PostgreSQL, applique les migrations, insere les donnees de demo puis lance
+le serveur sur [http://localhost:3000](http://localhost:3000). Arret : `docker compose down`
+(ajouter `-v` pour repartir d'une base vide). En dehors d'une demo locale, definir un vrai secret :
+`QR_SECRET=... docker compose up -d --build`.
+
+## Mise en route (developpement, sans conteneur pour l'app)
 
 ```bash
 npm install
