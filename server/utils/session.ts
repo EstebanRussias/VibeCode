@@ -2,13 +2,12 @@ import type { H3Event } from 'h3'
 import type { User } from '../../app/generated/prisma/client'
 
 export const SESSION_COOKIE = 'session'
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 export type Role = 'USER' | 'ORGANIZER' | 'ADMIN'
 export const ROLES: Role[] = ['USER', 'ORGANIZER', 'ADMIN']
 
 export async function createSession(userId: string) {
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
+  const expiresAt = new Date(Date.now() + CONFIG.auth.sessionTtlMs)
   return prisma.session.create({ data: { userId, expiresAt } })
 }
 

@@ -22,6 +22,7 @@ defineRouteMeta({
       '200': { description: 'Utilisateur connecte (id, email, name, role).' },
       '400': { description: 'Email ou mot de passe manquant.' },
       '401': { description: 'Identifiants invalides.' },
+      '429': { description: 'Trop d\'echecs depuis cette IP (5 en 15 min) : bloquee, voir l\'en-tete Retry-After.' },
     },
     $global: {
       components: {
@@ -44,6 +45,10 @@ interface LoginBody {
 }
 
 export default defineEventHandler(async (event) => {
+  // Une IP bloquee l'est meme avec le bon mot de passe, sinon le brute-force
+  // continuerait de fonctionner pendant le blocage.
+  assertNotRateLimited(event, 'login')
+
   const body = await readBody<LoginBody>(event)
   const email = body?.email?.trim().toLowerCase()
   const password = body?.password
@@ -54,9 +59,11 @@ export default defineEventHandler(async (event) => {
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    recordAttempt(event, 'login')
     throw createError({ statusCode: 401, statusMessage: 'Identifiants invalides.' })
   }
 
+  resetAttempts(event, 'login')
   const session = await createSession(user.id)
   setSessionCookie(event, session.id, session.expiresAt)
 

@@ -38,7 +38,7 @@ defineRouteMeta({
 })
 
 const configuredMax = Number(process.env.MAX_TICKETS_PER_EMAIL)
-const MAX_TICKETS_PER_USER = Number.isInteger(configuredMax) && configuredMax > 0 ? configuredMax : 4
+const MAX_TICKETS_PER_USER = Number.isInteger(configuredMax) && configuredMax > 0 ? configuredMax : CONFIG.tickets.maxPerUser
 
 interface ReservationBody {
   ticketCategoryId?: string

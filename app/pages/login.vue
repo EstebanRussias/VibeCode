@@ -37,7 +37,7 @@ async function submit() {
       <form class="form" @submit.prevent="submit">
         <label v-if="mode === 'register'">
           Nom affiche
-          <input v-model="name" required maxlength="80" autocomplete="name" placeholder="Prenom Nom" />
+          <input v-model="name" required :maxlength="CONFIG.auth.nameMaxLength" autocomplete="name" placeholder="Prenom Nom" />
         </label>
         <label>
           Email
@@ -49,9 +49,9 @@ async function submit() {
             v-model="password"
             type="password"
             required
-            minlength="8"
+            :minlength="CONFIG.auth.passwordMinLength"
             :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
-            placeholder="8 caracteres minimum"
+            :placeholder="`${CONFIG.auth.passwordMinLength} caracteres minimum`"
           />
         </label>
         <button type="submit" class="btn btn-primary" :disabled="loading">

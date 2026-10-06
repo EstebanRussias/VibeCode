@@ -51,8 +51,8 @@ export default defineEventHandler(async (event) => {
 
   if (body?.name !== undefined) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
-    if (!name || name.length > 80) {
-      throw createError({ statusCode: 400, statusMessage: 'Nom requis (80 caracteres max).' })
+    if (!name || name.length > CONFIG.auth.nameMaxLength) {
+      throw createError({ statusCode: 400, statusMessage: `Nom requis (${CONFIG.auth.nameMaxLength} caracteres max).` })
     }
     data.name = name
   }

@@ -16,9 +16,7 @@ defineRouteMeta({
   },
 })
 
-const CANCELLATION_DEADLINE_HOURS = 48
-
-// Espace d'annulation client (module 6) : autorise jusqu'a H-48, remise en
+// Espace d'annulation client (module 6) : autorise jusqu'au delai CONFIG.tickets.cancellationDeadlineHours, remise en
 // stock immediate et proposition automatique a la liste d'attente (2.4).
 // Uniquement sur ses propres billets.
 export default defineEventHandler(async (event) => {
@@ -43,10 +41,10 @@ export default defineEventHandler(async (event) => {
     }
 
     const hoursUntilEvent = (current.ticketCategory.event.eventDate.getTime() - Date.now()) / 3_600_000
-    if (hoursUntilEvent < CANCELLATION_DEADLINE_HOURS) {
+    if (hoursUntilEvent < CONFIG.tickets.cancellationDeadlineHours) {
       throw createError({
         statusCode: 422,
-        statusMessage: `Annulation impossible a moins de ${CANCELLATION_DEADLINE_HOURS}h de l'evenement.`,
+        statusMessage: `Annulation impossible a moins de ${CONFIG.tickets.cancellationDeadlineHours}h de l'evenement.`,
       })
     }
 

@@ -109,7 +109,7 @@ async function deleteReservation() {
           <tbody>
             <tr v-for="u in filtered" :key="u.id" :class="{ dirty: isDirty(u) }">
               <td>
-                <input v-if="drafts[u.id]" v-model="drafts[u.id]!.name" maxlength="80" aria-label="Nom" />
+                <input v-if="drafts[u.id]" v-model="drafts[u.id]!.name" :maxlength="CONFIG.auth.nameMaxLength" aria-label="Nom" />
               </td>
               <td class="email">
                 {{ u.email }}
