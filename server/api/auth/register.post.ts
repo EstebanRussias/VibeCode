@@ -26,6 +26,7 @@ defineRouteMeta({
       '201': { description: 'Compte USER cree et connecte.' },
       '400': { description: 'Champ invalide.' },
       '409': { description: 'Email deja utilise.' },
+      '429': { description: 'Plus de 5 inscriptions en 15 min depuis cette IP : bloquee, voir l\'en-tete Retry-After.' },
     },
   },
 })
@@ -39,6 +40,11 @@ interface RegisterBody {
 }
 
 export default defineEventHandler(async (event) => {
+  // Chaque tentative d'inscription compte (reussie ou non) : limite aussi la
+  // creation de comptes en masse depuis une meme IP.
+  assertNotRateLimited(event, 'register')
+  recordAttempt(event, 'register')
+
   const body = await readBody<RegisterBody>(event)
   const email = body?.email?.trim().toLowerCase()
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
@@ -47,11 +53,11 @@ export default defineEventHandler(async (event) => {
   if (!email || !EMAIL_RE.test(email)) {
     throw createError({ statusCode: 400, statusMessage: 'Email invalide.' })
   }
-  if (!name || name.length > 80) {
-    throw createError({ statusCode: 400, statusMessage: 'Nom requis (80 caracteres max).' })
+  if (!name || name.length > CONFIG.auth.nameMaxLength) {
+    throw createError({ statusCode: 400, statusMessage: `Nom requis (${CONFIG.auth.nameMaxLength} caracteres max).` })
   }
-  if (!password || password.length < 8) {
-    throw createError({ statusCode: 400, statusMessage: 'Mot de passe : 8 caracteres minimum.' })
+  if (!password || password.length < CONFIG.auth.passwordMinLength) {
+    throw createError({ statusCode: 400, statusMessage: `Mot de passe : ${CONFIG.auth.passwordMinLength} caracteres minimum.` })
   }
 
   const existing = await prisma.user.findUnique({ where: { email } })

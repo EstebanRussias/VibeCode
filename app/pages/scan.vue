@@ -26,7 +26,7 @@ function beep(frequency: number) {
     oscillator.frequency.value = frequency
     oscillator.connect(ctx.destination)
     oscillator.start()
-    oscillator.stop(ctx.currentTime + 0.2)
+    oscillator.stop(ctx.currentTime + CONFIG.scan.beep.durationSeconds)
   } catch {
     // audio non disponible (ex. contexte de test) — pas bloquant pour le POC
   }
@@ -45,7 +45,7 @@ async function scan() {
 
     lastResult.value = result
     history.value.unshift({ ...result, at: new Date().toLocaleTimeString('fr-FR'), token })
-    beep(result.result === 'OK' ? 880 : 220)
+    beep(result.result === 'OK' ? CONFIG.scan.beep.okHz : CONFIG.scan.beep.invalidHz)
     qrToken.value = ''
   } catch (error: any) {
     lastResult.value = { result: 'INVALID', message: errorMessage(error, 'Scan impossible.') }

@@ -77,7 +77,7 @@ const visibleEvents = computed(() =>
 
 // --- Creation d'un concert avec ses categories (une seule requete) ---
 function emptyCategory(): CategoryForm {
-  return { name: '', totalPlaces: 100, price: 20, earlyPrice: null, earlyUntil: '' }
+  return { name: '', totalPlaces: CONFIG.categories.defaultTotalPlaces, price: CONFIG.categories.defaultPriceEuros, earlyPrice: null, earlyUntil: '' }
 }
 
 const newEvent = reactive({ name: '', eventDate: '', categories: [emptyCategory()] })
@@ -148,7 +148,7 @@ async function addPlaces(eventId: string, categoryId: string) {
   try {
     await $fetch(`/api/organizer/categories/${categoryId}/add-places`, {
       method: 'POST',
-      body: { amount: addPlacesAmount[categoryId] || 10 },
+      body: { amount: addPlacesAmount[categoryId] || CONFIG.categories.defaultPlacesPerAdd },
     })
     await refresh()
   } catch (error: any) {
@@ -187,7 +187,7 @@ function categoryOf(event: EventDto, categoryId: string) {
         <div class="row">
           <label class="grow">
             Nom du concert
-            <input v-model="newEvent.name" required maxlength="120" placeholder="Ex. Nuit Jazz & Blues" />
+            <input v-model="newEvent.name" required :maxlength="CONFIG.events.nameMaxLength" placeholder="Ex. Nuit Jazz & Blues" />
           </label>
           <label>
             Date et heure (UTC)
@@ -200,7 +200,7 @@ function categoryOf(event: EventDto, categoryId: string) {
           <div v-for="(category, index) in newEvent.categories" :key="index" class="category-row">
             <label class="grow">
               Nom
-              <input v-model="category.name" required maxlength="80" placeholder="Fosse, Balcon, VIP…" />
+              <input v-model="category.name" required :maxlength="CONFIG.categories.nameMaxLength" placeholder="Fosse, Balcon, VIP…" />
             </label>
             <label>
               Places
@@ -304,7 +304,7 @@ function categoryOf(event: EventDto, categoryId: string) {
                     v-model.number="addPlacesAmount[row.categoryId]"
                     type="number"
                     min="1"
-                    placeholder="10"
+                    :placeholder="String(CONFIG.categories.defaultPlacesPerAdd)"
                     aria-label="Nombre de places a ajouter"
                   />
                   <button type="submit" class="btn btn-ghost btn-small">+</button>
@@ -337,7 +337,7 @@ function categoryOf(event: EventDto, categoryId: string) {
       <form v-else class="category-row add-category" @submit.prevent="addCategory(event.id)">
         <label class="grow">
           Nom
-          <input v-model="categoryFormFor(event.id).name" required maxlength="80" placeholder="Carre Or" />
+          <input v-model="categoryFormFor(event.id).name" required :maxlength="CONFIG.categories.nameMaxLength" placeholder="Carre Or" />
         </label>
         <label>
           Places

@@ -46,7 +46,7 @@ export function parsePriceFields(
 
 function eurosToCents(value: unknown) {
   const euros = typeof value === 'string' ? Number(value.replace(',', '.')) : Number(value)
-  if (value === '' || value === null || value === undefined || !Number.isFinite(euros) || euros < 0 || euros > 100_000) {
+  if (value === '' || value === null || value === undefined || !Number.isFinite(euros) || euros < 0 || euros > CONFIG.pricing.maxPriceEuros) {
     return null
   }
   return Math.round(euros * 100)

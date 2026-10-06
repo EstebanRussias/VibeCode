@@ -46,8 +46,8 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<AddPlacesBody>(event)
   const amount = Number(body?.amount)
-  if (!Number.isInteger(amount) || amount < 1 || amount > 10_000) {
-    throw createError({ statusCode: 400, statusMessage: 'amount (entier entre 1 et 10000) requis.' })
+  if (!Number.isInteger(amount) || amount < 1 || amount > CONFIG.categories.maxPlacesPerAdd) {
+    throw createError({ statusCode: 400, statusMessage: `amount (entier entre 1 et ${CONFIG.categories.maxPlacesPerAdd}) requis.` })
   }
 
   return prisma.$transaction(async (tx) => {

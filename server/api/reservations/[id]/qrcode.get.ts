@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Billet non confirme, annule ou expire.' })
   }
 
-  const png = await QRCode.toBuffer(reservation.qrToken, { type: 'png', width: 320, margin: 1 })
+  const png = await QRCode.toBuffer(reservation.qrToken, { type: 'png', width: CONFIG.qrCode.widthPx, margin: CONFIG.qrCode.marginModules })
   setHeader(event, 'Content-Type', 'image/png')
   setHeader(event, 'Cache-Control', 'no-store')
   return png

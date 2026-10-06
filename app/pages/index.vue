@@ -59,7 +59,7 @@ function availabilityRatio(category: TicketCategory) {
 function availabilityTone(category: TicketCategory) {
   const ratio = availabilityRatio(category)
   if (category.placesDisponibles === 0) return 'danger'
-  if (ratio <= 30) return 'warning'
+  if (ratio <= CONFIG.ui.lowAvailabilityPercent) return 'warning'
   return 'success'
 }
 
@@ -197,7 +197,7 @@ async function confirmHold(id?: string) {
               v-model.number="formFor(category.id).quantity"
               type="number"
               min="1"
-              max="4"
+              :max="CONFIG.tickets.maxPerUser"
               aria-label="Quantite"
             />
             <button type="submit" class="btn" :class="category.placesDisponibles > 0 ? 'btn-primary' : 'btn-ghost'" :disabled="pendingAction[category.id]">

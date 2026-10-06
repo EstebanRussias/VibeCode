@@ -3,9 +3,6 @@ import type { PrismaTx } from './prisma'
 import { currentPrice } from './pricing'
 import { signReservationToken } from './qrToken'
 
-// Fenetre d'achat exclusive temporisee (section 2.4).
-const HOLD_WINDOW_MS = 2 * 60 * 60 * 1000
-
 // Sweep paresseux : pas de worker/cron pour ce POC, on expire les HELD en
 // retard a chaque fois qu'on touche la categorie concernee (reservation,
 // annulation, listing des evenements).
@@ -53,7 +50,7 @@ export async function processWaitlistForCategory(tx: PrismaTx, ticketCategoryId:
   })
 
   const reservationId = randomUUID()
-  const holdExpiresAt = new Date(Date.now() + HOLD_WINDOW_MS)
+  const holdExpiresAt = new Date(Date.now() + CONFIG.tickets.holdWindowMs)
   const { unitPriceCents, isEarly } = currentPrice(category)
 
   const reservation = await tx.reservation.create({

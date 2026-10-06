@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
 
   // Le poste de scan est libre (ex. "Guichet 2") mais toujours rattache au
   // compte qui scanne : la trace d'audit n'est pas falsifiable.
-  const station = typeof body?.scannedBy === 'string' ? body.scannedBy.trim().slice(0, 40) : ''
+  const station = typeof body?.scannedBy === 'string' ? body.scannedBy.trim().slice(0, CONFIG.scan.stationMaxLength) : ''
   const scannedBy = station ? `${user.name} (${station})` : user.name
 
   const reservation = await prisma.reservation.findUnique({

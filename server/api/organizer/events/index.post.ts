@@ -63,8 +63,6 @@ interface CreateEventBody {
   categories?: CategoryInput[]
 }
 
-const MAX_CATEGORIES = 20
-
 // Creation d'un concert AVEC ses categories, dans une seule ecriture : un
 // concert ne peut pas exister sans au moins une categorie de billets.
 // ORGANIZER et ADMIN en deviennent proprietaires.
@@ -73,8 +71,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<CreateEventBody>(event)
 
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
-  if (!name || name.length > 120) {
-    throw createError({ statusCode: 400, statusMessage: 'Nom du concert requis (120 caracteres max).' })
+  if (!name || name.length > CONFIG.events.nameMaxLength) {
+    throw createError({ statusCode: 400, statusMessage: `Nom du concert requis (${CONFIG.events.nameMaxLength} caracteres max).` })
   }
 
   const eventDate = parseUtcDate(body?.eventDate)
@@ -83,10 +81,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const rawCategories = Array.isArray(body?.categories) ? body.categories : []
-  if (rawCategories.length < 1 || rawCategories.length > MAX_CATEGORIES) {
+  if (rawCategories.length < 1 || rawCategories.length > CONFIG.events.maxCategories) {
     throw createError({
       statusCode: 400,
-      statusMessage: `Un concert doit avoir entre 1 et ${MAX_CATEGORIES} categories.`,
+      statusMessage: `Un concert doit avoir entre 1 et ${CONFIG.events.maxCategories} categories.`,
     })
   }
   const categories = rawCategories.map((c) => parseCategoryInput(c, eventDate))
