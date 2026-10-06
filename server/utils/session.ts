@@ -1,7 +1,11 @@
 import type { H3Event } from 'h3'
+import type { User } from '../../app/generated/prisma/client'
 
 export const SESSION_COOKIE = 'session'
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+export type Role = 'USER' | 'ORGANIZER' | 'ADMIN'
+export const ROLES: Role[] = ['USER', 'ORGANIZER', 'ADMIN']
 
 export async function createSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
@@ -12,6 +16,7 @@ export function setSessionCookie(event: H3Event, sessionId: string, expiresAt: D
   setCookie(event, SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false',
     path: '/',
     expires: expiresAt,
   })
@@ -21,14 +26,19 @@ export function clearSessionCookie(event: H3Event) {
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }
 
-export async function getCurrentUser(event: H3Event) {
+// Memorise l'utilisateur dans event.context : le middleware serveur et le
+// handler appellent tous les deux cette fonction, une seule requete en base.
+export async function getCurrentUser(event: H3Event): Promise<User | null> {
+  if (event.context.user !== undefined) return event.context.user as User | null
+
   const sessionId = getCookie(event, SESSION_COOKIE)
-  if (!sessionId) return null
+  const session = sessionId
+    ? await prisma.session.findUnique({ where: { id: sessionId }, include: { user: true } })
+    : null
 
-  const session = await prisma.session.findUnique({ where: { id: sessionId }, include: { user: true } })
-  if (!session || session.expiresAt < new Date()) return null
-
-  return session.user
+  const user = session && session.expiresAt > new Date() ? session.user : null
+  event.context.user = user
+  return user
 }
 
 export async function requireUser(event: H3Event) {
@@ -39,33 +49,25 @@ export async function requireUser(event: H3Event) {
   return user
 }
 
-// ADMIN et SUPERADMIN peuvent tous les deux creer des concerts (dont ils
-// deviennent proprietaires). Seul SUPERADMIN peut ensuite gerer les
-// concerts crees par d'autres, ou supprimer un billet.
-export async function requireAnyAdmin(event: H3Event) {
+export async function requireRole(event: H3Event, ...roles: Role[]) {
   const user = await requireUser(event)
-  if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
-    throw createError({ statusCode: 403, statusMessage: 'Reserve aux administrateurs.' })
+  if (!roles.includes(user.role)) {
+    throw createError({ statusCode: 403, statusMessage: 'Acces refuse pour votre role.' })
   }
   return user
 }
 
-export async function requireSuperAdmin(event: H3Event) {
-  const user = await requireUser(event)
-  if (user.role !== 'SUPERADMIN') {
-    throw createError({ statusCode: 403, statusMessage: 'Reserve au super-admin.' })
-  }
-  return user
-}
-
-// ADMIN : uniquement sur les concerts dont il est proprietaire.
-// SUPERADMIN : sur tous les concerts, y compris ceux des autres admins.
+// ORGANIZER : uniquement sur les concerts dont il est proprietaire.
+// ADMIN : sur tous les concerts.
 export async function requireEventManager(event: H3Event, ownerId: string) {
-  const user = await requireUser(event)
-  if (user.role === 'SUPERADMIN') return user
-  if (user.role === 'ADMIN' && user.id === ownerId) return user
+  const user = await requireRole(event, 'ORGANIZER', 'ADMIN')
+  if (user.role === 'ADMIN' || user.id === ownerId) return user
   throw createError({
     statusCode: 403,
-    statusMessage: "Reserve au proprietaire du concert ou a un super-admin.",
+    statusMessage: "Reserve a l'organisateur du concert ou a un admin.",
   })
+}
+
+export function publicUser(user: { id: string; email: string; name: string; role: Role }) {
+  return { id: user.id, email: user.email, name: user.name, role: user.role }
 }

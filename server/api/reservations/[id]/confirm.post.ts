@@ -1,15 +1,14 @@
 // Confirmation du billet propose par la liste d'attente (section 2.4) :
 // la personne notifiee clique sur son lien dans la fenetre de 2h.
 export default defineEventHandler(async (event) => {
-  const user = await requireUser(event)
+  const user = await requireRole(event, 'USER')
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Id de reservation manquant.' })
 
   return prisma.$transaction(async (tx) => {
     const current = await tx.reservation.findUnique({ where: { id } })
-    if (!current) throw createError({ statusCode: 404, statusMessage: 'Reservation introuvable.' })
-    if (current.userId !== user.id && user.role !== 'ADMIN') {
-      throw createError({ statusCode: 403, statusMessage: "Ce billet n'appartient pas a votre compte." })
+    if (!current || current.userId !== user.id) {
+      throw createError({ statusCode: 404, statusMessage: 'Reservation introuvable.' })
     }
 
     if (current.status === 'CONFIRMED') return current // deja confirmee, idempotent
@@ -29,9 +28,15 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return tx.reservation.update({
-      where: { id },
+    const { count } = await tx.reservation.updateMany({
+      where: { id, status: 'HELD' },
       data: { status: 'CONFIRMED', holdExpiresAt: null },
     })
+    if (count === 0) {
+      throw createError({ statusCode: 409, statusMessage: 'Reservation modifiee entre-temps, reessayez.' })
+    }
+    await tx.waitlistEntry.updateMany({ where: { reservationId: id }, data: { status: 'CONFIRMED' } })
+
+    return tx.reservation.findUniqueOrThrow({ where: { id } })
   })
 })

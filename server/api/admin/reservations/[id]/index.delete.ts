@@ -1,8 +1,8 @@
 // Suppression definitive d'un billet, quel qu'en soit le proprietaire.
-// Reserve au SUPERADMIN (contrairement a l'annulation cote client, qui ne
+// Reserve a l'ADMIN (contrairement a l'annulation cote client, qui ne
 // touche qu'a ses propres billets et respecte la fenetre H-48).
 export default defineEventHandler(async (event) => {
-  await requireSuperAdmin(event)
+  await requireRole(event, 'ADMIN')
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Id de reservation manquant.' })
 

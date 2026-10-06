@@ -20,5 +20,5 @@ export default defineEventHandler(async (event) => {
   const session = await createSession(user.id)
   setSessionCookie(event, session.id, session.expiresAt)
 
-  return { id: user.id, email: user.email, role: user.role }
+  return publicUser(user)
 })

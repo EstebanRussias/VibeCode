@@ -1,9 +1,16 @@
 <script setup lang="ts">
+definePageMeta({ roles: ['USER'] })
+
 interface TicketCategory {
   id: string
   name: string
   totalPlaces: number
   placesDisponibles: number
+  priceCents: number
+  earlyPriceCents: number | null
+  earlyUntil: string | null
+  unitPriceCents: number
+  isEarly: boolean
   waitlistCount: number
 }
 
@@ -11,6 +18,7 @@ interface EventDto {
   id: string
   name: string
   eventDate: string
+  organizerName: string
   categories: TicketCategory[]
 }
 
@@ -19,26 +27,17 @@ interface Reservation {
   ticketCategoryId: string
   email: string
   quantity: number
+  unitPriceCents: number
+  isEarly: boolean
   status: 'CONFIRMED' | 'HELD' | 'CANCELLED' | 'EXPIRED'
   idempotencyKey: string
   qrToken: string
-  ticketCategory: { name: string; event: { name: string } }
+  holdExpiresAt: string | null
+  ticketCategory: { name: string; event: { name: string; eventDate: string; owner: { name: string } } }
 }
 
-const user = useAuthUser()
-
 const { data: events, refresh, pending } = await useFetch<EventDto[]>('/api/events')
-const { data: tickets, refresh: refreshTickets } = await useFetch<Reservation[]>('/api/reservations/mine', {
-  immediate: !!user.value,
-})
-
-watch(
-  user,
-  (value) => {
-    if (value) refreshTickets()
-  },
-  { immediate: false }
-)
+const { data: tickets, refresh: refreshTickets } = await useFetch<Reservation[]>('/api/reservations/mine')
 
 const forms = reactive<Record<string, { quantity: number }>>({})
 const errors = reactive<Record<string, string>>({})
@@ -65,8 +64,6 @@ function availabilityTone(category: TicketCategory) {
 }
 
 async function reserve(categoryId: string) {
-  if (!user.value) return navigateTo('/login')
-
   errors[categoryId] = ''
   pendingAction[categoryId] = true
   const form = formFor(categoryId)
@@ -79,15 +76,13 @@ async function reserve(categoryId: string) {
     })
     await Promise.all([refresh(), refreshTickets()])
   } catch (error: any) {
-    errors[categoryId] = error?.data?.statusMessage || error?.statusMessage || 'Erreur inconnue.'
+    errors[categoryId] = errorMessage(error)
   } finally {
     pendingAction[categoryId] = false
   }
 }
 
 async function joinWaitlist(categoryId: string) {
-  if (!user.value) return navigateTo('/login')
-
   errors[categoryId] = ''
   pendingAction[categoryId] = true
   try {
@@ -95,7 +90,7 @@ async function joinWaitlist(categoryId: string) {
     await refresh()
     errors[categoryId] = "Inscription en liste d'attente confirmee."
   } catch (error: any) {
-    errors[categoryId] = error?.data?.statusMessage || error?.statusMessage || 'Erreur inconnue.'
+    errors[categoryId] = errorMessage(error)
   } finally {
     pendingAction[categoryId] = false
   }
@@ -120,7 +115,7 @@ async function cancel(ticket: Reservation) {
     await $fetch(`/api/reservations/${ticket.id}/cancel`, { method: 'POST' })
     await Promise.all([refresh(), refreshTickets()])
   } catch (error: any) {
-    alert(error?.data?.statusMessage || error?.statusMessage || 'Annulation impossible.')
+    alert(errorMessage(error, 'Annulation impossible.'))
   }
 }
 
@@ -135,7 +130,7 @@ async function confirmHold(id?: string) {
     holdConfirmId.value = ''
     await Promise.all([refresh(), refreshTickets()])
   } catch (error: any) {
-    holdConfirmMessage.value = error?.data?.statusMessage || error?.statusMessage || 'Confirmation impossible.'
+    holdConfirmMessage.value = errorMessage(error, 'Confirmation impossible.')
   }
 }
 </script>
@@ -146,21 +141,22 @@ async function confirmHold(id?: string) {
       <span class="eyebrow">POC billetterie</span>
       <h1>Reservez votre place, sans friction</h1>
       <p class="lede">
-        Confirmation gratuite en un clic, aucune passerelle de paiement. Le controle d'acces se fait sur la page
-        <NuxtLink to="/scan">Scanner</NuxtLink>.
+        Confirmation en un clic au prix affiche (paiement simule). Reservez tot pour profiter du tarif early.
+        Tous les horaires sont en UTC.
       </p>
     </section>
 
-    <p v-if="!user" class="login-hint">
-      <NuxtLink to="/login">Connectez-vous</NuxtLink> pour reserver et retrouver vos billets.
-    </p>
+    <p v-if="events && !events.length" class="loading">Aucun concert a venir pour le moment.</p>
 
     <p v-if="pending" class="loading">Chargement des evenements…</p>
 
     <section v-for="event in events" :key="event.id" class="event-card">
       <div class="event-head">
-        <h2>{{ event.name }}</h2>
-        <span class="event-date">📅 {{ new Date(event.eventDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
+        <div>
+          <h2>{{ event.name }}</h2>
+          <p class="organizer">Organise par <strong>{{ event.organizerName }}</strong></p>
+        </div>
+        <span class="event-date">📅 {{ formatUtc(event.eventDate) }}</span>
       </div>
 
       <div class="categories">
@@ -171,6 +167,14 @@ async function confirmHold(id?: string) {
               {{ category.placesDisponibles }} / {{ category.totalPlaces }} places
             </span>
           </div>
+
+          <p class="price-line">
+            <strong class="price">{{ formatPrice(category.unitPriceCents) }}</strong>
+            <template v-if="category.isEarly">
+              <s class="muted">{{ formatPrice(category.priceCents) }}</s>
+              <span class="badge early">Early jusqu'au {{ formatUtc(category.earlyUntil) }}</span>
+            </template>
+          </p>
 
           <div class="progress-track">
             <div
@@ -212,13 +216,17 @@ async function confirmHold(id?: string) {
           <div class="ticket-top">
             <div>
               <p class="ticket-email">{{ ticket.ticketCategory.event.name }}</p>
-              <p class="muted">{{ ticket.ticketCategory.name }} — {{ ticket.quantity }} billet(s)</p>
+              <p class="muted">{{ formatUtc(ticket.ticketCategory.event.eventDate) }}</p>
+              <p class="muted">
+                {{ ticket.ticketCategory.name }} — {{ ticket.quantity }} x {{ formatPrice(ticket.unitPriceCents) }}
+                <span v-if="ticket.isEarly" class="badge early">Early</span>
+              </p>
             </div>
             <span class="badge" :class="ticket.status === 'CONFIRMED' ? 'success' : 'warning'">{{ ticket.status }}</span>
           </div>
 
           <img
-            v-if="ticket.status !== 'CANCELLED' && ticket.status !== 'EXPIRED'"
+            v-if="ticket.status === 'CONFIRMED'"
             :src="`/api/reservations/${ticket.id}/qrcode`"
             alt="QR code du billet"
             width="150"
@@ -226,9 +234,12 @@ async function confirmHold(id?: string) {
             class="qr"
           />
 
-          <p class="muted token-line">
-            Token (a coller dans <NuxtLink to="/scan">Scanner</NuxtLink>) :
+          <p v-if="ticket.status === 'CONFIRMED'" class="muted token-line">
+            Token du QR (a presenter au controle) :
             <code>{{ ticket.qrToken }}</code>
+          </p>
+          <p v-else-if="ticket.status === 'HELD'" class="muted token-line">
+            Place liberee pour vous : a confirmer avant {{ formatUtc(ticket.holdExpiresAt) }}.
           </p>
 
           <div v-if="ticket.status === 'CONFIRMED'" class="ticket-actions">
@@ -249,13 +260,13 @@ async function confirmHold(id?: string) {
       </div>
     </section>
 
-    <section v-if="user" class="waitlist-confirm">
+    <section class="waitlist-confirm">
       <h2>Confirmer une place liberee</h2>
       <p class="muted">
         Les notifications de liste d'attente sont simulees dans la console du serveur (section 2.4) : copiez-y
         l'id de reservation propose.
       </p>
-      <form class="reserve-form" @submit.prevent="confirmHold">
+      <form class="reserve-form" @submit.prevent="confirmHold()">
         <input v-model="holdConfirmId" placeholder="id de reservation HELD" required />
         <button type="submit" class="btn btn-primary">Confirmer</button>
       </form>
@@ -309,12 +320,6 @@ async function confirmHold(id?: string) {
   color: var(--color-muted);
 }
 
-.login-hint {
-  text-align: center;
-  color: var(--color-muted);
-  margin-bottom: 1.5rem;
-}
-
 .event-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -340,6 +345,29 @@ async function confirmHold(id?: string) {
 .event-date {
   color: var(--color-muted);
   font-size: 0.9rem;
+}
+
+.organizer {
+  margin: 0.2rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.price-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+}
+
+.price {
+  font-size: 1.15rem;
+}
+
+.badge.early {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
 }
 
 .categories {

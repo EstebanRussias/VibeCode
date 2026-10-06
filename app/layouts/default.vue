@@ -2,14 +2,32 @@
 const route = useRoute()
 const user = useAuthUser()
 
-if (user.value === undefined) {
-  await fetchCurrentUser()
-}
+// Navigation propre a chaque role (le middleware auth.global.ts redirige
+// de toute facon une page non autorisee).
+const links = computed(() => {
+  switch (user.value?.role) {
+    case 'USER':
+      return [{ to: '/', label: 'Concerts & billets' }]
+    case 'ORGANIZER':
+      return [
+        { to: '/organizer', label: 'Mes concerts' },
+        { to: '/scan', label: 'Scanner' },
+      ]
+    case 'ADMIN':
+      return [
+        { to: '/admin', label: 'Utilisateurs' },
+        { to: '/organizer', label: 'Concerts' },
+        { to: '/scan', label: 'Scanner' },
+      ]
+    default:
+      return []
+  }
+})
 
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
   user.value = null
-  await navigateTo('/')
+  await navigateTo('/login')
 }
 </script>
 
@@ -24,17 +42,22 @@ async function logout() {
         </span>
       </NuxtLink>
 
-      <nav class="nav">
-        <NuxtLink to="/" class="nav-link" :class="{ active: route.path === '/' }">Réservation</NuxtLink>
-        <NuxtLink to="/scan" class="nav-link" :class="{ active: route.path === '/scan' }">Scanner</NuxtLink>
-        <NuxtLink v-if="user?.role === 'ADMIN'" to="/admin" class="nav-link" :class="{ active: route.path === '/admin' }">
-          Admin
+      <nav v-if="links.length" class="nav">
+        <NuxtLink
+          v-for="link in links"
+          :key="link.to"
+          :to="link.to"
+          class="nav-link"
+          :class="{ active: route.path === link.to }"
+        >
+          {{ link.label }}
         </NuxtLink>
       </nav>
 
       <div class="account">
         <template v-if="user">
-          <span class="account-email">{{ user.email }}</span>
+          <span class="account-email" :title="user.email">{{ user.name }}</span>
+          <span class="role-badge" :class="user.role.toLowerCase()">{{ ROLE_LABELS[user.role] }}</span>
           <button type="button" class="account-btn" @click="logout">Deconnexion</button>
         </template>
         <NuxtLink v-else to="/login" class="account-btn primary">Se connecter</NuxtLink>
@@ -141,6 +164,27 @@ async function logout() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.role-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.role-badge.organizer {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.role-badge.admin {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .account-btn {

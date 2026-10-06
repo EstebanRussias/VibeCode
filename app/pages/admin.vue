@@ -1,99 +1,66 @@
 <script setup lang="ts">
-interface TicketCategory {
+definePageMeta({ roles: ['ADMIN'] })
+
+interface UserRow {
   id: string
+  email: string
   name: string
-  totalPlaces: number
-  placesDisponibles: number
-  waitlistCount: number
+  role: Role
+  createdAt: string
+  _count: { ownedEvents: number; reservations: number }
 }
 
-interface EventDto {
-  id: string
-  name: string
-  eventDate: string
-  ownerId: string
-  ownerEmail: string
-  categories: TicketCategory[]
+const currentUser = useAuthUser()
+const { data: users, refresh } = await useFetch<UserRow[]>('/api/admin/users')
+
+const roleOptions: Role[] = ['USER', 'ORGANIZER', 'ADMIN']
+
+// Brouillon par ligne : on n'envoie que ce qui a change.
+const drafts = reactive<Record<string, { name: string; role: Role }>>({})
+const rowMessages = reactive<Record<string, { ok: boolean; text: string }>>({})
+const saving = reactive<Record<string, boolean>>({})
+
+watchEffect(() => {
+  for (const u of users.value ?? []) {
+    if (!drafts[u.id]) drafts[u.id] = { name: u.name, role: u.role }
+  }
+})
+
+function isDirty(u: UserRow) {
+  const draft = drafts[u.id]
+  return !!draft && (draft.name.trim() !== u.name || draft.role !== u.role)
 }
 
-const user = useAuthUser()
-if (user.value === undefined) await fetchCurrentUser()
-
-const { data: events, refresh } = await useFetch<EventDto[]>('/api/events')
-
-function canManage(event: EventDto) {
-  return user.value?.role === 'SUPERADMIN' || event.ownerId === user.value?.id
-}
-
-const newEvent = reactive({ name: '', eventDate: '' })
-const newEventError = ref('')
-const newEventPending = ref(false)
-
-async function createEvent() {
-  newEventError.value = ''
-  newEventPending.value = true
+async function save(u: UserRow) {
+  const draft = drafts[u.id]!
+  saving[u.id] = true
+  delete rowMessages[u.id]
   try {
-    await $fetch('/api/admin/events', {
-      method: 'POST',
-      body: { name: newEvent.name, eventDate: newEvent.eventDate },
-    })
-    newEvent.name = ''
-    newEvent.eventDate = ''
+    const body: { name?: string; role?: Role } = {}
+    if (draft.name.trim() !== u.name) body.name = draft.name
+    if (draft.role !== u.role) body.role = draft.role
+    await $fetch(`/api/admin/users/${u.id}`, { method: 'POST', body })
     await refresh()
+    drafts[u.id] = { name: draft.name.trim(), role: draft.role }
+    rowMessages[u.id] = { ok: true, text: 'Enregistre.' }
+    if (u.id === currentUser.value?.id) await fetchCurrentUser()
   } catch (error: any) {
-    newEventError.value = error?.data?.statusMessage || error?.statusMessage || 'Erreur inconnue.'
+    rowMessages[u.id] = { ok: false, text: errorMessage(error) }
   } finally {
-    newEventPending.value = false
+    saving[u.id] = false
   }
 }
 
-const categoryForms = reactive<Record<string, { name: string; totalPlaces: number }>>({})
-const categoryErrors = reactive<Record<string, string>>({})
-
-function categoryFormFor(eventId: string) {
-  if (!categoryForms[eventId]) categoryForms[eventId] = { name: '', totalPlaces: 20 }
-  return categoryForms[eventId]
+function reset(u: UserRow) {
+  drafts[u.id] = { name: u.name, role: u.role }
+  delete rowMessages[u.id]
 }
 
-async function addCategory(eventId: string) {
-  categoryErrors[eventId] = ''
-  const form = categoryFormFor(eventId)
-  try {
-    await $fetch(`/api/admin/events/${eventId}/categories`, {
-      method: 'POST',
-      body: { name: form.name, totalPlaces: form.totalPlaces },
-    })
-    form.name = ''
-    await refresh()
-  } catch (error: any) {
-    categoryErrors[eventId] = error?.data?.statusMessage || error?.statusMessage || 'Erreur inconnue.'
-  }
-}
-
-const addPlacesAmount = reactive<Record<string, number>>({})
-
-async function addPlaces(categoryId: string) {
-  const amount = addPlacesAmount[categoryId] || 10
-  try {
-    await $fetch(`/api/admin/categories/${categoryId}/add-places`, {
-      method: 'POST',
-      body: { amount },
-    })
-    await refresh()
-  } catch (error: any) {
-    alert(error?.data?.statusMessage || error?.statusMessage || "Impossible d'ajouter des places.")
-  }
-}
-
-async function deleteEvent(event: EventDto) {
-  if (!confirm(`Supprimer definitivement "${event.name}" et tous ses billets ?`)) return
-  try {
-    await $fetch(`/api/admin/events/${event.id}`, { method: 'DELETE' })
-    await refresh()
-  } catch (error: any) {
-    alert(error?.data?.statusMessage || error?.statusMessage || 'Suppression impossible.')
-  }
-}
+const search = ref('')
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return (users.value ?? []).filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.includes(q))
+})
 
 const deleteReservationId = ref('')
 const deleteReservationMessage = ref('')
@@ -101,12 +68,11 @@ const deleteReservationMessage = ref('')
 async function deleteReservation() {
   deleteReservationMessage.value = ''
   try {
-    await $fetch(`/api/admin/reservations/${deleteReservationId.value}`, { method: 'DELETE' })
+    await $fetch(`/api/admin/reservations/${deleteReservationId.value.trim()}`, { method: 'DELETE' })
     deleteReservationMessage.value = 'Billet supprime et place remise en stock.'
     deleteReservationId.value = ''
-    await refresh()
   } catch (error: any) {
-    deleteReservationMessage.value = error?.data?.statusMessage || error?.statusMessage || 'Suppression impossible.'
+    deleteReservationMessage.value = errorMessage(error, 'Suppression impossible.')
   }
 }
 </script>
@@ -114,96 +80,88 @@ async function deleteReservation() {
 <template>
   <main class="page">
     <section class="hero">
-      <span class="eyebrow">Espace organisateur</span>
-      <h1>Gestion des concerts</h1>
-    </section>
-
-    <p v-if="user === undefined" class="loading">Chargement…</p>
-
-    <section v-else-if="!user" class="notice">
-      <p>Connectez-vous pour acceder a l'espace organisateur.</p>
-      <NuxtLink to="/login" class="btn btn-primary">Se connecter</NuxtLink>
-    </section>
-
-    <section v-else-if="user.role === 'USER'" class="notice">
-      <p>Acces reserve aux organisateurs (ADMIN / SUPERADMIN).</p>
-    </section>
-
-    <template v-else>
-      <p class="role-hint">
-        Connecte en tant que <strong>{{ user.email }}</strong> —
-        <span v-if="user.role === 'SUPERADMIN'">super-admin : acces a tous les concerts.</span>
-        <span v-else>admin : acces limite a vos propres concerts.</span>
+      <span class="eyebrow">Admin</span>
+      <h1>Gestion des utilisateurs</h1>
+      <p class="lede">
+        Modifiez le nom et le role de chaque compte. Le changement s'applique immediatement, y compris aux sessions
+        deja ouvertes.
       </p>
+    </section>
 
-      <section class="create-card">
-        <h2>Creer un concert</h2>
-        <form class="inline-form" @submit.prevent="createEvent">
-          <input v-model="newEvent.name" placeholder="Nom du concert" required />
-          <input v-model="newEvent.eventDate" type="datetime-local" required />
-          <button type="submit" class="btn btn-primary" :disabled="newEventPending">Creer</button>
-        </form>
-        <p v-if="newEventError" class="feedback">{{ newEventError }}</p>
-      </section>
+    <section class="card">
+      <div class="toolbar">
+        <h2>{{ users?.length ?? 0 }} comptes</h2>
+        <input v-model="search" type="search" placeholder="Rechercher un nom ou un email" />
+      </div>
 
-      <section v-for="event in events" :key="event.id" class="event-card">
-        <div class="event-head">
-          <div>
-            <h2>{{ event.name }}</h2>
-            <p class="muted">
-              {{ new Date(event.eventDate).toLocaleString('fr-FR') }} — proprietaire : {{ event.ownerEmail }}
-            </p>
-          </div>
-          <button v-if="canManage(event)" type="button" class="btn btn-outline" @click="deleteEvent(event)">
-            Supprimer le concert
-          </button>
-        </div>
+      <div class="table-wrap">
+        <table class="users">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th class="num">Concerts</th>
+              <th class="num">Billets</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="u in filtered" :key="u.id" :class="{ dirty: isDirty(u) }">
+              <td>
+                <input v-if="drafts[u.id]" v-model="drafts[u.id]!.name" maxlength="80" aria-label="Nom" />
+              </td>
+              <td class="email">
+                {{ u.email }}
+                <span v-if="u.id === currentUser?.id" class="you">vous</span>
+              </td>
+              <td>
+                <select
+                  v-if="drafts[u.id]"
+                  v-model="drafts[u.id]!.role"
+                  :disabled="u.id === currentUser?.id"
+                  aria-label="Role"
+                >
+                  <option v-for="r in roleOptions" :key="r" :value="r">{{ ROLE_LABELS[r] }}</option>
+                </select>
+              </td>
+              <td class="num">{{ u._count.ownedEvents }}</td>
+              <td class="num">{{ u._count.reservations }}</td>
+              <td class="actions">
+                <template v-if="isDirty(u)">
+                  <button type="button" class="btn btn-primary" :disabled="saving[u.id]" @click="save(u)">
+                    Enregistrer
+                  </button>
+                  <button type="button" class="btn btn-icon" title="Annuler" @click="reset(u)">✕</button>
+                </template>
+                <span v-if="rowMessages[u.id]" class="row-message" :class="{ ok: rowMessages[u.id]!.ok }">
+                  {{ rowMessages[u.id]!.text }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-        <div class="categories">
-          <article v-for="category in event.categories" :key="category.id" class="category-card">
-            <div class="category-head">
-              <h3>{{ category.name }}</h3>
-              <span class="badge">{{ category.placesDisponibles }} / {{ category.totalPlaces }}</span>
-            </div>
-            <form v-if="canManage(event)" class="inline-form" @submit.prevent="addPlaces(category.id)">
-              <input
-                v-model.number="addPlacesAmount[category.id]"
-                type="number"
-                min="1"
-                placeholder="10"
-                aria-label="Nombre de places a ajouter"
-              />
-              <button type="submit" class="btn btn-ghost">+ Places</button>
-            </form>
-          </article>
-        </div>
-
-        <form v-if="canManage(event)" class="inline-form category-add" @submit.prevent="addCategory(event.id)">
-          <input v-model="categoryFormFor(event.id).name" placeholder="Nouvelle categorie (ex: Carre Or)" required />
-          <input v-model.number="categoryFormFor(event.id).totalPlaces" type="number" min="1" placeholder="Places" />
-          <button type="submit" class="btn btn-ghost">Ajouter la categorie</button>
-        </form>
-        <p v-if="categoryErrors[event.id]" class="feedback">{{ categoryErrors[event.id] }}</p>
-      </section>
-
-      <section v-if="user.role === 'SUPERADMIN'" class="danger-card">
-        <h2>Supprimer un billet (super-admin)</h2>
-        <p class="muted">
-          Supprime definitivement un billet, quel qu'en soit le proprietaire, et remet la place en stock.
-        </p>
-        <form class="inline-form" @submit.prevent="deleteReservation">
-          <input v-model="deleteReservationId" placeholder="id du billet" required />
-          <button type="submit" class="btn btn-outline">Supprimer</button>
-        </form>
-        <p v-if="deleteReservationMessage" class="feedback">{{ deleteReservationMessage }}</p>
-      </section>
-    </template>
+    <section class="card danger-card">
+      <h2>Supprimer un billet</h2>
+      <p class="muted">
+        Supprime definitivement un billet, quel qu'en soit le titulaire, et remet la place en stock (liste d'attente
+        servie en priorite).
+      </p>
+      <form class="inline-form" @submit.prevent="deleteReservation">
+        <input v-model="deleteReservationId" placeholder="id du billet (colonne Billet de l'export CSV)" required />
+        <button type="submit" class="btn btn-outline">Supprimer</button>
+      </form>
+      <p v-if="deleteReservationMessage" class="feedback">{{ deleteReservationMessage }}</p>
+    </section>
   </main>
 </template>
 
 <style scoped>
 .page {
-  max-width: 880px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 2.5rem 1.25rem 4rem;
 }
@@ -213,12 +171,22 @@ async function deleteReservation() {
   padding: 1.5rem 1rem 2rem;
 }
 
+.hero h1 {
+  margin: 0 0 0.5rem;
+}
+
+.lede {
+  color: var(--color-muted);
+  max-width: 60ch;
+  margin: 0 auto;
+}
+
 .eyebrow {
   display: inline-block;
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
-  background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
   font-weight: 700;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
@@ -226,135 +194,140 @@ async function deleteReservation() {
   margin-bottom: 1rem;
 }
 
-.loading {
-  text-align: center;
-  color: var(--color-muted);
-}
-
-.notice {
-  text-align: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-}
-
-.notice .btn {
-  margin-top: 1rem;
-  display: inline-block;
-  text-decoration: none;
-}
-
-.role-hint {
-  text-align: center;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-}
-
-.create-card,
-.danger-card {
+.card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.card h2 {
+  margin: 0;
 }
 
 .danger-card {
   border-color: var(--color-danger-soft);
 }
 
-.event-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+.danger-card h2 {
+  margin-bottom: 0.4rem;
 }
 
-.event-head {
+.toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.event-head h2 {
-  margin: 0 0 0.25rem;
-}
-
-.categories {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   margin-bottom: 1rem;
 }
 
-.category-card {
-  background: #fbfaff;
+input,
+select {
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1rem;
+  background: white;
+  font-size: 0.88rem;
+  color: var(--color-text);
+  min-width: 0;
 }
 
-.category-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
+input:focus,
+select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
-.category-head h3 {
-  margin: 0;
-  font-size: 1rem;
+.table-wrap {
+  overflow-x: auto;
 }
 
-.badge {
+.users {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.users th,
+.users td {
+  text-align: left;
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.users thead th {
   font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.users tr.dirty td {
+  background: #fbfaff;
+}
+
+.users td input {
+  width: 100%;
+  min-width: 140px;
+}
+
+.users .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.email {
+  color: var(--color-muted);
+}
+
+.you {
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.25rem 0.6rem;
+  padding: 0.1rem 0.45rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
   color: var(--color-primary-dark);
-  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.6rem;
+}
+
+.row-message {
+  font-size: 0.8rem;
+  color: var(--color-danger);
+  white-space: normal;
+}
+
+.row-message.ok {
+  color: var(--color-success);
 }
 
 .inline-form {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 0.75rem;
 }
 
 .inline-form input {
-  flex: 1 1 140px;
-  min-width: 0;
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: white;
-  font-size: 0.9rem;
-}
-
-.inline-form input[type='number'] {
-  flex: 0 0 90px;
-}
-
-.category-add {
-  margin-top: 0.5rem;
+  flex: 1 1 260px;
 }
 
 .btn {
   border: none;
   border-radius: var(--radius-sm);
-  padding: 0.55rem 1.1rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
 }
 
@@ -374,14 +347,16 @@ async function deleteReservation() {
   border: 1px solid var(--color-danger-soft);
 }
 
-.btn-ghost {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+.btn-icon {
+  background: transparent;
+  color: var(--color-muted);
+  padding: 0.5rem 0.55rem;
 }
 
 .muted {
   color: var(--color-muted);
   font-size: 0.85rem;
+  margin: 0;
 }
 
 .feedback {

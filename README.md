@@ -3,7 +3,7 @@
 Proof of concept local (Nuxt 4 + Nitro + Prisma/PostgreSQL) qui demontre les mecaniques de securite
 demandees par le client : anti-survente par verrouillage pessimiste, idempotence anti-doublons,
 QR codes signes avec scanner anti-fraude, et liste d'attente FIFO. Pas de passerelle de paiement :
-la reservation est gratuite et confirmee en un clic.
+la reservation est confirmee en un clic au prix affiche (tarif normal ou early).
 
 ## Prerequis
 
@@ -32,34 +32,48 @@ npm run db:up
 # 2. Cree le schema en base
 npm run db:migrate
 
-# 3. Insere un evenement de demo (categories "Fosse" 3 places / "Balcon" 5 places)
+# 3. Insere les comptes et concerts de demo
 npm run db:seed
 
 # 4. Lance l'app
 npm run dev
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000) pour reserver, [http://localhost:3000/scan](http://localhost:3000/scan)
-pour le scanner de controle, [http://localhost:3000/admin](http://localhost:3000/admin) pour la gestion des concerts.
+Ouvrir [http://localhost:3000](http://localhost:3000) : chaque role est redirige vers son espace
+apres connexion.
 
-## Comptes de demo (crees par `npm run db:seed`)
+## Roles et pages
 
-| Email | Mot de passe | Role | Droits |
-| --- | --- | --- | --- |
-| `admin@nuits-garonne.fr` | `admin1234` | SUPERADMIN | Gere tous les concerts (meme ceux des autres admins), peut supprimer n'importe quel billet |
-| `organisateur@nuits-garonne.fr` | `admin1234` | ADMIN | Cree/modifie/supprime uniquement ses propres concerts (Scene Acoustique, Hommage Rock) |
-| *(a creer via `/login`)* | — | USER | S'inscrit librement, reserve ses billets, les retrouve sur `/` |
+| Role | Page | Droits |
+| --- | --- | --- |
+| USER (acheteur) | `/` | Seul role qui achete : catalogue, reservation, liste d'attente, ses billets et QR codes, annulation jusqu'a H-48 |
+| ORGANIZER | `/organizer`, `/scan` | Cree un concert **avec** ses categories (prix + tarif early), gere uniquement ses concerts : recettes par categorie (vue SQL), export CSV des participants, ajout de places, scan des billets de ses concerts. N'achete pas |
+| ADMIN | `/admin`, `/organizer`, `/scan` | Page gestionnaire : liste des comptes, modification du nom et du role (USER / ORGANIZER / ADMIN). Droits organisateur sur tous les concerts, suppression de n'importe quel billet |
+
+L'inscription publique cree toujours un compte USER ; seul un ADMIN peut promouvoir un compte.
+
+## Comptes de demo (crees par le seed)
+
+Mots de passe de demonstration uniquement : a changer avant toute mise en ligne.
+
+| Email | Mot de passe | Role |
+| --- | --- | --- |
+| `admin@nuits-garonne.fr` | `admin1234` | ADMIN |
+| `organisateur@nuits-garonne.fr` | `admin1234` | ORGANIZER (Garonne Productions : Demonstration, Scene Acoustique, Hommage Rock) |
+| `hangar@nuits-garonne.fr` | `admin1234` | ORGANIZER (Hangar Live : Electro, Jazz & Blues) |
+| `client@nuits-garonne.fr` | `client1234` | USER |
 
 ## Demontrer l'anti-survente
 
-Avec le serveur `npm run dev` lance, dans un autre terminal :
+Avec le serveur lance (Docker ou `npm run dev`), dans un autre terminal :
 
 ```bash
 npm run demo:concurrency -- http://localhost:3000 demo-fosse 10
 ```
 
-Envoie 10 reservations concurrentes sur la categorie "Fosse" (3 places en stock) et affiche le
-nombre de reussites — doit toujours etre exactement 3, jamais plus, meme sous forte concurrence.
+Se connecte avec le compte `client@`, envoie 10 reservations concurrentes sur la categorie "Fosse"
+(3 places en stock) et affiche le nombre de reussites — exactement 3, jamais plus. Le stock reste
+consomme ensuite : `docker compose down -v` pour repartir d'une base neuve.
 
 ## Ce que couvre ce POC
 
@@ -67,16 +81,27 @@ nombre de reussites — doit toujours etre exactement 3, jamais plus, meme sous 
   (`SELECT ... FOR UPDATE`) dans une transaction Prisma avant de decrementer.
 - **2.2 Idempotence** : cle d'idempotence unique en base ; rejouer la meme requete renvoie le
   meme billet (bouton "Rejouer la reservation" sur la page d'accueil).
-- **2.3 Scanner** : QR signe HMAC (`server/utils/qrToken.ts`), verification + marquage en une
-  transaction, alerte si deja scanne. Version en ligne uniquement (pas de PWA offline).
+- **2.3 Scanner** : QR signe HMAC (`server/utils/qrToken.ts`), marquage par UPDATE conditionnel
+  (deux scans simultanes du meme QR -> un seul OK), alerte si deja scanne. Reserve a
+  l'organisateur du concert et aux admins. Version en ligne uniquement (pas de PWA offline).
 - **2.4 Liste d'attente FIFO** : inscription automatique quand une categorie est complete,
   notification (simulee en console serveur) et fenetre de confirmation de 2h a l'annulation d'un
   billet.
-- **Comptes & roles** : billets lies au compte (`userId`), sessions opaques en base
-  (`server/utils/session.ts`), mots de passe hashes avec `scrypt` (natif Node, pas de dependance
-  a compiler). Trois roles : USER (achete ses billets), ADMIN (gere ses propres concerts,
-  `ownerId` sur `Event`), SUPERADMIN (gere tous les concerts et peut supprimer n'importe quel
-  billet) — voir `server/utils/session.ts` (`requireEventManager`, `requireSuperAdmin`).
+- **Protection des routes par role** : `server/middleware/auth.ts` associe chaque prefixe d'API
+  aux roles autorises et refuse toute route non declaree (deny by default) ; chaque handler
+  revalide le role (`requireRole`) et la propriete du concert (`requireEventManager`). Les pages
+  declarent leurs roles (`definePageMeta({ roles })`, garde `app/middleware/auth.global.ts`).
+- **Comptes** : billets lies au compte (`userId`), sessions opaques en base
+  (`server/utils/session.ts`), mots de passe hashes avec `scrypt`. Le role est relu en base a
+  chaque requete : un changement de role par l'admin s'applique immediatement.
+- **Prix & tarif early** : prix par categorie en centimes, tarif early optionnel jusqu'a une date ;
+  le prix paye est fige sur chaque billet (`unitPriceCents`, `isEarly`).
+- **Recettes** : vue SQL `CategoryRevenue` (migration `roles_prices_stats`) — billets vendus,
+  dont early, scannes et recette par categorie ; lue par `GET /api/organizer/events/:id/stats`.
+- **Export CSV** : `GET /api/organizer/events/:id/attendees` (format Excel FR, cellules protegees
+  contre l'injection de formules).
+- **Horaires en UTC** : saisie et affichage des dates de concert en UTC (`server/utils/dates.ts`,
+  `app/utils/format.ts`).
 
 ## Hors perimetre (voir la proposition complète)
 

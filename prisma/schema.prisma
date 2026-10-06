@@ -1,5 +1,7 @@
 // POC billetterie — Les Nuits de la Garonne
-// Un seul organisateur, pas de paiement : la reservation est confirmee par un clic.
+// Pas de paiement : la reservation est confirmee par un clic, au prix affiche.
+// Les recettes par categorie sont exposees par la vue SQL "CategoryRevenue"
+// (creee dans la migration roles_prices_stats, lue en $queryRaw).
 
 generator client {
   provider = "prisma-client"
@@ -24,18 +26,20 @@ enum WaitlistStatus {
   CONFIRMED
 }
 
-// USER : achete ses billets. ADMIN : cree/gere uniquement les concerts
-// dont il est proprietaire (ownerId). SUPERADMIN : gere tous les concerts
-// (y compris ceux des autres admins) et peut supprimer n'importe quel billet.
+// USER : seul role qui achete des billets. ORGANIZER : cree et gere ses
+// propres concerts (ownerId), consulte leurs recettes et exporte la liste
+// des participants, sans pouvoir acheter. ADMIN : gere les utilisateurs
+// (nom, role) et a les droits organisateur sur tous les concerts.
 enum Role {
   USER
+  ORGANIZER
   ADMIN
-  SUPERADMIN
 }
 
 model User {
   id              String          @id @default(uuid())
   email           String          @unique
+  name            String
   passwordHash    String
   role            Role            @default(USER)
   createdAt       DateTime        @default(now())
@@ -76,6 +80,12 @@ model TicketCategory {
   name              String
   totalPlaces       Int
   placesDisponibles Int
+  // Prix en centimes (entiers : pas d'erreur d'arrondi sur les recettes).
+  priceCents        Int             @default(0)
+  // Tarif "early" optionnel : applique tant que la date earlyUntil n'est
+  // pas passee.
+  earlyPriceCents   Int?
+  earlyUntil        DateTime?
   reservations      Reservation[]
   waitlistEntries   WaitlistEntry[]
 
@@ -94,6 +104,9 @@ model Reservation {
   user             User              @relation(fields: [userId], references: [id])
   email            String
   quantity         Int
+  // Prix unitaire fige au moment de la reservation (tarif early ou normal).
+  unitPriceCents   Int               @default(0)
+  isEarly          Boolean           @default(false)
   status           ReservationStatus @default(CONFIRMED)
   idempotencyKey   String            @unique
   qrToken          String            @unique

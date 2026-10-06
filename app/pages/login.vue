@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const mode = ref<'login' | 'register'>('login')
 const email = ref('')
+const name = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -11,12 +12,12 @@ async function submit() {
   try {
     await $fetch(mode.value === 'login' ? '/api/auth/login' : '/api/auth/register', {
       method: 'POST',
-      body: { email: email.value, password: password.value },
+      body: { email: email.value, name: name.value, password: password.value },
     })
-    await fetchCurrentUser()
-    await navigateTo('/')
+    const user = await fetchCurrentUser()
+    await navigateTo(user ? homeFor(user.role) : '/')
   } catch (e: any) {
-    error.value = e?.data?.statusMessage || e?.statusMessage || 'Erreur inconnue.'
+    error.value = errorMessage(e)
   } finally {
     loading.value = false
   }
@@ -28,9 +29,16 @@ async function submit() {
     <section class="card">
       <span class="eyebrow">{{ mode === 'login' ? 'Connexion' : 'Creer un compte' }}</span>
       <h1>{{ mode === 'login' ? 'Content de vous revoir' : 'Rejoignez Les Nuits de la Garonne' }}</h1>
-      <p class="lede">Vos billets sont lies a votre compte : reservez, retrouvez-les, annulez-les.</p>
+      <p class="lede">
+        Vos billets sont lies a votre compte : reservez, retrouvez-les, annulez-les. Les comptes organisateur
+        sont attribues par un admin.
+      </p>
 
       <form class="form" @submit.prevent="submit">
+        <label v-if="mode === 'register'">
+          Nom affiche
+          <input v-model="name" required maxlength="80" autocomplete="name" placeholder="Prenom Nom" />
+        </label>
         <label>
           Email
           <input v-model="email" type="email" required autocomplete="email" placeholder="vous@exemple.fr" />

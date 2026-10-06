@@ -1,6 +1,6 @@
-// Suppression d'un concert : reserve au proprietaire (ADMIN) ou a un
-// SUPERADMIN. Cascade en base sur les categories, reservations et listes
-// d'attente liees (onDelete: Cascade dans le schema).
+// Suppression d'un concert : reserve a son organisateur ou a un ADMIN.
+// Cascade en base sur les categories, reservations et listes d'attente
+// liees (onDelete: Cascade dans le schema).
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'id')
   if (!eventId) throw createError({ statusCode: 400, statusMessage: "Id d'evenement manquant." })

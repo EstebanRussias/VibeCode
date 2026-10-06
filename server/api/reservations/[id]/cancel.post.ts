@@ -2,8 +2,9 @@ const CANCELLATION_DEADLINE_HOURS = 48
 
 // Espace d'annulation client (module 6) : autorise jusqu'a H-48, remise en
 // stock immediate et proposition automatique a la liste d'attente (2.4).
+// Uniquement sur ses propres billets.
 export default defineEventHandler(async (event) => {
-  const user = await requireUser(event)
+  const user = await requireRole(event, 'USER')
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Id de reservation manquant.' })
 
@@ -12,9 +13,9 @@ export default defineEventHandler(async (event) => {
       where: { id },
       include: { ticketCategory: { include: { event: true } } },
     })
-    if (!current) throw createError({ statusCode: 404, statusMessage: 'Reservation introuvable.' })
-    if (current.userId !== user.id && user.role !== 'ADMIN') {
-      throw createError({ statusCode: 403, statusMessage: "Ce billet n'appartient pas a votre compte." })
+    // 404 aussi pour le billet d'un autre : ne confirme pas qu'il existe.
+    if (!current || current.userId !== user.id) {
+      throw createError({ statusCode: 404, statusMessage: 'Reservation introuvable.' })
     }
     if (current.status !== 'CONFIRMED') {
       throw createError({
@@ -31,10 +32,15 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const cancelled = await tx.reservation.update({
-      where: { id },
+    // Transition conditionnelle : deux annulations simultanees du meme billet
+    // ne peuvent pas remettre deux fois les places en stock (anti-survente).
+    const { count } = await tx.reservation.updateMany({
+      where: { id, status: 'CONFIRMED' },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     })
+    if (count === 0) {
+      throw createError({ statusCode: 409, statusMessage: 'Reservation deja annulee.' })
+    }
 
     await tx.ticketCategory.update({
       where: { id: current.ticketCategoryId },
@@ -43,6 +49,6 @@ export default defineEventHandler(async (event) => {
 
     await processWaitlistForCategory(tx, current.ticketCategoryId)
 
-    return cancelled
+    return tx.reservation.findUniqueOrThrow({ where: { id } })
   })
 })

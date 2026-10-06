@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ roles: ['ORGANIZER', 'ADMIN'] })
+
 interface ScanResult {
   result: 'OK' | 'ALREADY_SCANNED' | 'INVALID'
   message: string
@@ -45,6 +47,8 @@ async function scan() {
     history.value.unshift({ ...result, at: new Date().toLocaleTimeString('fr-FR'), token })
     beep(result.result === 'OK' ? 880 : 220)
     qrToken.value = ''
+  } catch (error: any) {
+    lastResult.value = { result: 'INVALID', message: errorMessage(error, 'Scan impossible.') }
   } finally {
     scanning.value = false
   }
@@ -57,8 +61,8 @@ async function scan() {
       <span class="eyebrow">Controle d'acces</span>
       <h1>Scanner d'entree</h1>
       <p class="lede">
-        Verifie la signature du QR et marque le billet scanne. Version en ligne du POC — le mode hors-ligne
-        (PWA/IndexedDB) est hors perimetre.
+        Verifie la signature du QR et marque le billet scanne. Un organisateur ne peut valider que les billets de
+        ses propres concerts. Version en ligne du POC — le mode hors-ligne (PWA/IndexedDB) est hors perimetre.
       </p>
     </section>
 

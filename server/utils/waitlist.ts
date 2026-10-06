@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { PrismaTx } from './prisma'
+import { currentPrice } from './pricing'
 import { signReservationToken } from './qrToken'
 
 // Fenetre d'achat exclusive temporisee (section 2.4).
@@ -14,7 +15,14 @@ export async function expireStaleHolds(tx: PrismaTx, ticketCategoryId: string) {
   })
 
   for (const hold of staleHolds) {
-    await tx.reservation.update({ where: { id: hold.id }, data: { status: 'EXPIRED' } })
+    // Transition conditionnelle : si une requete concurrente a deja expire ce
+    // hold, count = 0 et on ne remet PAS la place en stock une seconde fois.
+    const { count } = await tx.reservation.updateMany({
+      where: { id: hold.id, status: 'HELD' },
+      data: { status: 'EXPIRED' },
+    })
+    if (count === 0) continue
+
     await tx.ticketCategory.update({
       where: { id: ticketCategoryId },
       data: { placesDisponibles: { increment: hold.quantity } },
@@ -46,6 +54,7 @@ export async function processWaitlistForCategory(tx: PrismaTx, ticketCategoryId:
 
   const reservationId = randomUUID()
   const holdExpiresAt = new Date(Date.now() + HOLD_WINDOW_MS)
+  const { unitPriceCents, isEarly } = currentPrice(category)
 
   const reservation = await tx.reservation.create({
     data: {
@@ -54,6 +63,8 @@ export async function processWaitlistForCategory(tx: PrismaTx, ticketCategoryId:
       userId: nextInLine.userId,
       email: nextInLine.email,
       quantity: 1,
+      unitPriceCents,
+      isEarly,
       status: 'HELD',
       idempotencyKey: `waitlist-${nextInLine.id}`,
       qrToken: signReservationToken(reservationId),
