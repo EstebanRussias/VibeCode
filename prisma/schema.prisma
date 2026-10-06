@@ -1,0 +1,125 @@
+// POC billetterie — Les Nuits de la Garonne
+// Un seul organisateur, pas de paiement : la reservation est confirmee par un clic.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  HELD
+  CANCELLED
+  EXPIRED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  EXPIRED
+  CONFIRMED
+}
+
+// USER : achete ses billets. ADMIN : cree/gere uniquement les concerts
+// dont il est proprietaire (ownerId). SUPERADMIN : gere tous les concerts
+// (y compris ceux des autres admins) et peut supprimer n'importe quel billet.
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+model User {
+  id              String          @id @default(uuid())
+  email           String          @unique
+  passwordHash    String
+  role            Role            @default(USER)
+  createdAt       DateTime        @default(now())
+  sessions        Session[]
+  reservations    Reservation[]
+  waitlistEntries WaitlistEntry[]
+  ownedEvents     Event[]
+}
+
+// Session opaque en base (plutot qu'un JWT) : une deconnexion supprime
+// vraiment la session cote serveur.
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Event {
+  id         String           @id @default(uuid())
+  name       String
+  eventDate  DateTime
+  createdAt  DateTime         @default(now())
+  ownerId    String
+  owner      User             @relation(fields: [ownerId], references: [id])
+  categories TicketCategory[]
+
+  @@index([ownerId])
+}
+
+model TicketCategory {
+  id                String          @id @default(uuid())
+  eventId           String
+  event             Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name              String
+  totalPlaces       Int
+  placesDisponibles Int
+  reservations      Reservation[]
+  waitlistEntries   WaitlistEntry[]
+
+  @@index([eventId])
+}
+
+// Une seule table de reservation : le clic "Reserver" cree directement une
+// ligne CONFIRMED (section 2.1) ; HELD sert uniquement a l'offre temporisee
+// faite au premier de la liste d'attente (section 2.4). Chaque billet est
+// lie au compte qui l'a reserve (userId).
+model Reservation {
+  id               String            @id @default(uuid())
+  ticketCategoryId String
+  ticketCategory   TicketCategory    @relation(fields: [ticketCategoryId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  email            String
+  quantity         Int
+  status           ReservationStatus @default(CONFIRMED)
+  idempotencyKey   String            @unique
+  qrToken          String            @unique
+  scannedAt        DateTime?
+  scannedBy        String?
+  holdExpiresAt    DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime          @default(now())
+
+  @@index([ticketCategoryId, status])
+  @@index([ticketCategoryId, userId, status])
+  @@index([userId])
+}
+
+model WaitlistEntry {
+  id               String         @id @default(uuid())
+  ticketCategoryId String
+  ticketCategory   TicketCategory @relation(fields: [ticketCategoryId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
+  email            String
+  status           WaitlistStatus @default(WAITING)
+  reservationId    String?
+  createdAt        DateTime       @default(now())
+  notifiedAt       DateTime?
+
+  @@index([ticketCategoryId, status, createdAt])
+  @@index([userId])
+}
